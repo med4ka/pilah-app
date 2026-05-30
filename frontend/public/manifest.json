@@ -1,0 +1,22 @@
+{
+  "name": "Pilah App",
+  "short_name": "Pilah",
+  "description": "Ubah Sampah Jadi Berkah",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/sprout.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/sprout.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
