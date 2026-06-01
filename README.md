@@ -35,7 +35,7 @@ The architecture emphasizes strict security protocols, including a **2-Way Secur
 ### 1. Warga (User) Interface
 *Empowering users with intuitive dashboards, AI assistance, and transparent reward tracking.*
 <p align="center">
-  <img src="public/pilah7.png" width="30%" alt="User Profile"/>
+  <img src="./public/pilah7.png" width="30%" alt="User Profile"/>
   <img src="public/pilah6.png" width="30%" alt="AI Assistant"/>
   <img src="public/pilah4.png" width="30%" alt="Karma Success"/>
 </p>
