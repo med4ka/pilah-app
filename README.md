@@ -74,9 +74,8 @@ The architecture emphasizes strict security protocols, including a **2-Way Secur
 
 Follow these protocols to clone and initialize the secure development environment locally:
 
-### 1. Environment Setup & Dependency Installation
-
 ```bash
+1. Environment Setup & Dependency Installation
 git clone [https://github.com/med4ka/pilah-app.git](https://github.com/med4ka/pilah-app.git)
 cd pilah-app
 
