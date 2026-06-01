@@ -79,3 +79,30 @@ Follow these protocols to clone and initialize the secure development environmen
 ```bash
 git clone [https://github.com/med4ka/pilah-app.git](https://github.com/med4ka/pilah-app.git)
 cd pilah-app
+
+2. Initialize Frontend & Backend Workspaces
+Install dependencies using strict package resolution.
+
+# Frontend setup
+cd frontend
+pnpm install
+
+# Backend setup (Open a new terminal)
+cd ../backend
+go mod tidy
+
+3. Security & Environment Variables
+Initialize your secure local environment parameters.
+
+# In frontend directory
+cp .env.example .env.local
+
+# In backend directory
+cp .env.example .env
+
+4. Execute Production-Optimized Dev Servers
+# In frontend directory
+pnpm run dev
+
+# In backend directory
+go run main.go
