@@ -7,7 +7,6 @@
   <img src="https://img.shields.io/badge/Framework-Next.js_14-black?style=for-the-badge&logo=next.js" />
   <img src="https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css" />
   <img src="https://img.shields.io/badge/Backend-Golang-00ADD8?style=for-the-badge&logo=go" />
-  <img src="https://img.shields.io/badge/Web3-Ethers.js-292929?style=for-the-badge&logo=ethereum" />
   <img src="https://img.shields.io/badge/Security-Anti--Fraud_2FA-00C7B7?style=for-the-badge&logo=security" />
 </p>
 
