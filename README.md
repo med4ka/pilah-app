@@ -6,6 +6,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Framework-Next.js_14-black?style=for-the-badge&logo=next.js" />
   <img src="https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css" />
+  <img src="https://img.shields.io/badge/Backend-Golang-00ADD8?style=for-the-badge&logo=go" />
   <img src="https://img.shields.io/badge/Web3-Ethers.js-292929?style=for-the-badge&logo=ethereum" />
   <img src="https://img.shields.io/badge/Security-Anti--Fraud_2FA-00C7B7?style=for-the-badge&logo=security" />
 </p>
@@ -35,25 +36,25 @@ The architecture emphasizes strict security protocols, including a **2-Way Secur
 ### 1. Warga (User) Interface
 *Empowering users with intuitive dashboards, AI assistance, and transparent reward tracking.*
 <p align="center">
-  <img src="./public/pilah7.png" width="30%" alt="User Profile"/>
-  <img src="public/pilah6.png" width="30%" alt="AI Assistant"/>
-  <img src="public/pilah4.png" width="30%" alt="Karma Success"/>
+  <img src="frontend/public/pilah7.png" width="30%" alt="User Profile"/>
+  <img src="frontend/public/pilah6.png" width="30%" alt="AI Assistant"/>
+  <img src="frontend/public/pilah4.png" width="30%" alt="Karma Success"/>
 </p>
 <p align="center"><i>From left to right: Profile Configuration, Context-Aware AI Chat, and Secure Karma Payout Handshake.</i></p>
 
 ### 2. Anti-Fraud Verification System
 *Ensuring ecosystem integrity with 2-way data matching and visual cryptographic proof.*
 <p align="center">
-  <img src="public/pilah3.png" width="45%" alt="Anti-Fraud System"/>
-  <img src="public/pilah2.png" width="45%" alt="Input Verification"/>
+  <img src="frontend/public/pilah3.png" width="45%" alt="Anti-Fraud System"/>
+  <img src="frontend/public/pilah2.png" width="45%" alt="Input Verification"/>
 </p>
 
 ### 3. Mitra (Collector) Interface
 *High-performance dispatching, real-time area scanning, and task management.*
 <p align="center">
-  <img src="public/pilah9.png" width="30%" alt="Live Radar"/>
-  <img src="public/pilah10.png" width="30%" alt="Task History"/>
-  <img src="public/pilah11.png" width="30%" alt="Collector Profile"/>
+  <img src="frontend/public/pilah9.png" width="30%" alt="Live Radar"/>
+  <img src="frontend/public/pilah10.png" width="30%" alt="Task History"/>
+  <img src="frontend/public/pilah11.png" width="30%" alt="Collector Profile"/>
 </p>
 <p align="center"><i>From left to right: Active Truck Radar & Scale Input, Task History Metrics, and Mitra Operational Profile.</i></p>
 
@@ -63,8 +64,9 @@ The architecture emphasizes strict security protocols, including a **2-Way Secur
 
 * **Frontend Engine:** Next.js 14 (App Router) - Utilizing strict server components for optimal Core Web Vitals and SEO.
 * **State & Memory Management:** Zustand - Ensuring isolated component re-renders, preventing memory leaks, and managing global UI states (like the Radar map) flawlessly.
+* **Backend Architecture:** Native Golang - Engineered for absolute minimum computational overhead, utilizing robust concurrency models for API delivery and rapid handshake validations.
 * **Styling:** Tailwind CSS - Utility-first styling for a completely bespoke, responsive design with zero runtime overhead.
-* **Security & Database:** Parameterized ORM queries (Prisma/Drizzle) coupled with strict connection pooling (PgBouncer) on PostgreSQL to prevent SQL injection and throttle database costs. 
+* **Security & Database:** Parameterized ORM queries coupled with strict connection pooling to prevent SQL injection and throttle database server costs. 
 * **Web3 Integration:** Custom smart contracts integration for Karma Point tokenomics.
 
 ---
@@ -76,19 +78,5 @@ Follow these protocols to clone and initialize the secure development environmen
 ### 1. Environment Setup & Dependency Installation
 
 ```bash
-git clone https://github.com/your-org/pilah-app.git
+git clone [https://github.com/med4ka/pilah-app.git](https://github.com/med4ka/pilah-app.git)
 cd pilah-app
-# Using pnpm is heavily enforced for strict dependency resolution and rapid installation
-pnpm install
-```
-
-### 2. Security & Environment Variables
-*Initialize your secure local environment parameters.*
-```bash
-cp .env.example .env.local
-```
-
-### 3. Execute Production-Optimized Dev Server
-```bash
-pnpm run dev
-```
