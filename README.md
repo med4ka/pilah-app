@@ -1,107 +1,101 @@
-<h1 align="center">🌿 Pilah - Eco-Reward Ecosystem</h1>
-<p align="center">
-  <i>Bespoke dual-interface platform connecting Pahlawan Pilah (Users) and Mitra (Collectors). Engineered for high performance, zero-bloat UI, and secure Web3-enabled eco-rewards (Karma Points).</i>
-</p>
+# Pilah
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Framework-Next.js_14-black?style=for-the-badge&logo=next.js" />
-  <img src="https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css" />
-  <img src="https://img.shields.io/badge/Backend-Golang-00ADD8?style=for-the-badge&logo=go" />
-  <img src="https://img.shields.io/badge/Security-Anti--Fraud_2FA-00C7B7?style=for-the-badge&logo=security" />
-</p>
+**A two-sided waste pickup and eco-reward platform connecting households with waste collectors.**
+
+Pilah addresses a coordination problem: households have recyclable waste (plastic, cardboard, glass) but no easy way to connect with collectors, and collectors have no organized way to find pickup requests. Pilah is a two-sided app — **Warga** (users) request pickups, **Mitra** (collectors) fulfill them — with a two-step confirmation handshake and a karma-points reward system for users.
 
 ---
 
-## 🚀 Overview
+## Features
 
-**Pilah** is a high-efficiency, dual-sided application built for the modern waste management and recycling ecosystem. It features two distinct but deeply integrated client interfaces: the **Warga (User)** portal for scheduling pick-ups and tracking eco-rewards, and the **Mitra (Collector)** portal equipped with live radar tracking and automated task management.
+**Implemented and working:**
+- JWT-based auth with role separation (user / collector)
+- Pickup requests with geolocation (latitude/longitude) and a weight breakdown by material (plastic, cardboard, glass)
+- Two-step handshake: collector marks a pickup accepted → completed, user confirms it — both sides have to agree before it's finalized
+- Photo evidence field attached to each pickup
+- Karma points tracked per user (`karma_points` field)
+- Pickup history, separately queryable from the user side and the collector side
 
-The architecture emphasizes strict security protocols, including a **2-Way Secure Anti-Fraud system** for weight verification, and utilizes a highly optimized, lightweight frontend to ensure fluid performance across low-end mobile devices and premium viewports alike. 
+**Planned / not yet implemented** (being upfront about this rather than overselling it):
+- No AI assistant is currently wired up in the backend — this may be a frontend-only UI placeholder for now
+- No live map/radar tracking service exists yet in the backend
+- There's an `ipfs_hash` field on the pickup model, suggesting an intent to store photo evidence on IPFS — but no upload/pinning logic is implemented yet, so treat this as scaffolding rather than a working feature
+- No blockchain or smart contract layer exists — karma points are a plain integer column in Postgres, not an on-chain token
 
----
+## Tech Stack
 
-## ✨ Key Features
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS v4, Zustand, PWA support (`@ducanh2912/next-pwa`) |
+| Backend | Go, Fiber v2, GORM, PostgreSQL |
+| Auth | JWT (`golang-jwt/jwt`), bcrypt |
 
-* **Dual-Client Architecture:** Isolated yet perfectly synchronized environments for Users (Warga) and Collectors (Mitra), minimizing unnecessary bundle size and maximizing client-side rendering speed.
-* **Web3 Eco-Rewards (Karma Points):** Securely integrated digital wallet system that processes "Karma Points" upon successful waste handshakes. Transactions are transparent, immutable, and optimized for ultra-low latency.
-* **2-Way Secure Anti-Fraud System:** Cryptographically verified handshakes between User and Collector. Weight metrics (Plastic, Cardboard, Glass) are cross-validated by camera proof before Karma Points are minted and disbursed.
-* **Live Radar & Geolocation Engine:** Hyper-optimized spatial querying to map real-time positions of Mitra trucks. Engineered to drastically reduce redundant API calls and prevent client battery drain.
-* **Pilah AI Assistant:** An ultra-lightweight, context-aware chatbot integrated directly into the Warga app to guide users seamlessly on sorting rules and localized pickup schedules.
+## API Reference
 
----
+| Endpoint | Method | Access | Purpose |
+|---|---|---|---|
+| `/api/v1/auth/register` | `POST` | Public | Create account |
+| `/api/v1/auth/login` | `POST` | Public | Login |
+| `/api/v1/users/me` | `GET` | Authenticated | Current user profile |
+| `/api/v1/pickups` | `POST` | Authenticated | Create a pickup request |
+| `/api/v1/pickups/history` | `GET` | Authenticated | User's own pickup history |
+| `/api/v1/pickups/collector-history` | `GET` | Authenticated | Collector's completed pickups |
+| `/api/v1/pickups/:id/confirm` | `PATCH` | Authenticated | User confirms a completed pickup |
+| `/api/v1/collector/pending` | `GET` | Public* | List pending pickup requests |
+| `/api/v1/collector/pickups/:id/accept` | `PATCH` | Authenticated | Collector accepts a request |
+| `/api/v1/collector/pickups/:id/complete` | `PATCH` | Authenticated | Collector marks complete |
 
-## 📸 Studio Showroom
+*The `pending` list endpoint isn't currently behind auth middleware — worth revisiting before any real deployment, since it means pickup request details are publicly readable.
 
-### 1. Warga (User) Interface
-*Empowering users with intuitive dashboards, AI assistance, and transparent reward tracking.*
-<p align="center">
-  <img src="frontend/public/pilah7.png" width="30%" alt="User Profile"/>
-  <img src="frontend/public/pilah6.png" width="30%" alt="AI Assistant"/>
-  <img src="frontend/public/pilah4.png" width="30%" alt="Karma Success"/>
-</p>
-<p align="center"><i>From left to right: Profile Configuration, Context-Aware AI Chat, and Secure Karma Payout Handshake.</i></p>
+## Getting Started
 
-### 2. Anti-Fraud Verification System
-*Ensuring ecosystem integrity with 2-way data matching and visual cryptographic proof.*
-<p align="center">
-  <img src="frontend/public/pilah3.png" width="45%" alt="Anti-Fraud System"/>
-  <img src="frontend/public/pilah2.png" width="45%" alt="Input Verification"/>
-</p>
+### Prerequisites
+- Go 1.25+
+- Node.js 18+
+- PostgreSQL
 
-### 3. Mitra (Collector) Interface
-*High-performance dispatching, real-time area scanning, and task management.*
-<p align="center">
-  <img src="frontend/public/pilah9.png" width="30%" alt="Live Radar"/>
-  <img src="frontend/public/pilah10.png" width="30%" alt="Task History"/>
-  <img src="frontend/public/pilah11.png" width="30%" alt="Collector Profile"/>
-</p>
-<p align="center"><i>From left to right: Active Truck Radar & Scale Input, Task History Metrics, and Mitra Operational Profile.</i></p>
-
----
-
-## 🛠 Tech Stack & Architecture
-
-* **Frontend Engine:** Next.js 14 (App Router) - Utilizing strict server components for optimal Core Web Vitals and SEO.
-* **State & Memory Management:** Zustand - Ensuring isolated component re-renders, preventing memory leaks, and managing global UI states (like the Radar map) flawlessly.
-* **Backend Architecture:** Native Golang - Engineered for absolute minimum computational overhead, utilizing robust concurrency models for API delivery and rapid handshake validations.
-* **Styling:** Tailwind CSS - Utility-first styling for a completely bespoke, responsive design with zero runtime overhead.
-* **Security & Database:** Parameterized ORM queries coupled with strict connection pooling to prevent SQL injection and throttle database server costs. 
-* **Web3 Integration:** Custom smart contracts integration for Karma Point tokenomics.
-
----
-
-## 💻 Local Development Setup
-
-Follow these protocols to clone and initialize the secure development environment locally:
+### Backend
 
 ```bash
-1. Environment Setup & Dependency Installation
-git clone [https://github.com/med4ka/pilah-app.git](https://github.com/med4ka/pilah-app.git)
-cd pilah-app
-
-2. Initialize Frontend & Backend Workspaces
-Install dependencies using strict package resolution.
-
-# Frontend setup
-cd frontend
-pnpm install
-
-# Backend setup (Open a new terminal)
-cd ../backend
-go mod tidy
-
-3. Security & Environment Variables
-Initialize your secure local environment parameters.
-
-# In frontend directory
-cp .env.example .env.local
-
-# In backend directory
+cd backend
 cp .env.example .env
+go mod tidy
+go run cmd/api/main.go
+```
 
-4. Execute Production-Optimized Dev Servers
-# In frontend directory
-pnpm run dev
+Runs on `:8080` by default.
 
-# In backend directory
-go run main.go
+### Frontend
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+## Project Structure
+
+```
+pilah-app/
+├── backend/
+│   └── internal/
+│       ├── config/       # DB connection
+│       ├── handlers/     # Fiber route handlers
+│       ├── middleware/   # JWT auth guard
+│       ├── models/       # GORM models (User, Pickup)
+│       ├── repository/   # DB queries
+│       └── services/     # business logic (auth, pickup)
+│
+└── frontend/
+    └── src/
+        └── app/          # Next.js App Router pages
+```
+
+## Status
+
+Early-stage / prototype. Core auth and pickup request flow work end-to-end. The reward economy (karma points beyond the raw counter), photo/IPFS evidence storage, and collector-side map view are the next pieces to build out.
+
+---
+
+*Built with Go, Fiber, and Next.js.*
