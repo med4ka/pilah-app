@@ -1,96 +1,232 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Gift, Smartphone, Wallet, Coffee, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { usePilahStore } from '@/store/usePilahStore'
+import { Gift, ShieldCheck, Smartphone, CreditCard, Loader2, Wallet, CheckCircle2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useAuthStore } from '@/store/useAuthStore'
+import { useUIStore } from '@/store/useUIStore'
+import { usePaymentMethodStore } from '@/store/usePaymentMethodStore'
+import { redeemKarma, getUserProfile } from '@/lib/api'
+import Dialog from '@/app/components/ui/Dialog'
+import { tapScale, transitionFast } from '@/lib/motion'
+
+// Simulated Cuan Exchange rate: 1 karma = Rp50 (aligned with the karma engine).
+const KARMA_TO_RUPIAH = 50
+// Artificial payment-gateway-like delay before the success screen shows.
+const PROCESSING_DELAY_MS = 1600
+
+type Phase = 'idle' | 'processing' | 'success'
 
 export default function RewardSheet() {
-  const { isRewardSheetOpen, closeRewardSheet, userData } = usePilahStore()
-  const points = userData?.karma_points || 0
-  
-  // State untuk notifikasi lokal di dalam Sheet
-  const [toast, setToast] = useState<{ type: 'success' | 'error', msg: string } | null>(null)
+  const userData = useAuthStore((s) => s.userData)
+  const setUserData = useAuthStore((s) => s.setUserData)
+  const { isRewardSheetOpen, closeRewardSheet } = useUIStore()
+  const { paymentMethods, selectedMethodId, setSelectedMethodId } = usePaymentMethodStore()
 
-  if (!isRewardSheetOpen) return null
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const [rupiahSent, setRupiahSent] = useState<number | null>(null)
 
-  // MOCKUP KATALOG HADIAH
-  const CATALOG = [
-    { id: 1, title: 'Pulsa All Operator 10k', cost: 100, icon: Smartphone, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-    { id: 2, title: 'Saldo GoPay Rp 25.000', cost: 250, icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-    { id: 3, title: 'Voucher Kopi Kenangan', cost: 50, icon: Coffee, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
-  ]
+  const karma = userData?.karma_points || 0
+  const rupiahEquivalent = karma * KARMA_TO_RUPIAH
+  const selectedMethod = paymentMethods.find((m) => m.id === selectedMethodId) || null
+  const canRedeem = karma > 0 && selectedMethod !== null
 
-  const handleTukar = (itemCost: number, itemName: string) => {
-    if (points >= itemCost) {
-      setToast({ type: 'success', msg: `Berhasil menukar! ${itemName} akan dikirim ke akunmu.` })
-      // Catatan: Di dunia nyata, ini bakal nembak API backend untuk potong saldo
-    } else {
-      setToast({ type: 'error', msg: `Saldo Karma kurang! Kamu butuh ${itemCost} poin.` })
+  // Reset to the selection screen every time the dialog closes (so reopening
+  // doesn't show a stale success/processing screen).
+  const handleClose = () => {
+    setPhase('idle')
+    setRupiahSent(null)
+    closeRewardSheet()
+  }
+
+  const handleRedeem = async () => {
+    if (!canRedeem || phase === 'processing') return
+    setError(null)
+    setPhase('processing')
+    try {
+      // Real withdrawal: the backend actually decrements the user's karma_points.
+      const res = await redeemKarma(karma)
+      // Only after success, run a short loading animation (artificial delay).
+      await new Promise((resolve) => setTimeout(resolve, PROCESSING_DELAY_MS))
+      // Refresh userData from the backend so other UI balances update too.
+      try {
+        const fresh = await getUserProfile()
+        setUserData(fresh)
+      } catch {
+        // Profile load failure isn't fatal — the new balance still comes from the redeem response.
+      }
+      setRupiahSent(res.rupiah_value)
+      setPhase('success')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Terjadi kesalahan. Coba lagi.')
+      setPhase('idle')
     }
-    setTimeout(() => setToast(null), 3000)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center items-end sm:items-center bg-zinc-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-       <div className="absolute inset-0" onClick={closeRewardSheet} />
-       
-       <div className="relative w-full max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2rem] p-6 pb-12 sm:pb-8 shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-300 ease-out flex flex-col max-h-[90vh]">
-          <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mb-6 sm:hidden shrink-0" />
-          
-          <div className="flex justify-between items-center mb-6 shrink-0">
-             <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2 tracking-tight">
-                <Gift size={24} className="text-emerald-500"/> Katalog Tukar Karma
-             </h2>
-             <button onClick={closeRewardSheet} className="p-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-full text-zinc-500 transition-colors active:scale-95">
-                <X size={20}/>
-             </button>
-          </div>
-
-          <div className="text-center py-6 bg-zinc-900 rounded-[1.5rem] border border-zinc-800 shrink-0 mb-6 relative overflow-hidden shadow-xl shadow-zinc-900/20">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-            <p className="text-[10px] font-bold text-zinc-400 mb-1 tracking-widest uppercase relative z-10">Total Karma Aktif</p>
-            <p className="text-4xl font-black text-white tracking-tight relative z-10">{points.toLocaleString('id-ID')}</p>
-          </div>
-
-          {toast && (
-            <div className={`mb-4 p-3 rounded-2xl flex items-start gap-3 text-sm font-bold border animate-in fade-in slide-in-from-top-2 shrink-0 ${toast.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
-              {toast.type === 'success' ? <CheckCircle2 className="shrink-0 mt-0.5" size={18} /> : <AlertCircle className="shrink-0 mt-0.5" size={18} />}
-              <p className="leading-snug text-xs">{toast.msg}</p>
+    <Dialog
+      isOpen={isRewardSheetOpen}
+      onClose={handleClose}
+      title={<span className="flex items-center gap-2"><Gift size={22} className="text-primary" /> Tukar Cuan</span>}
+      description="Tukar Karma-mu jadi saldo Rupiah."
+    >
+      <AnimatePresence mode="wait">
+        {phase === 'idle' && (
+          <motion.div
+            key="idle"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={transitionFast}
+          >
+            <div className="bg-neutral-900 rounded-[1.5rem] border border-neutral-800 p-6 mb-5 relative overflow-hidden shadow-xl shadow-neutral-900/20">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
+              <p className="text-[10px] font-bold text-neutral-400 mb-1 tracking-widest uppercase relative z-10">Saldo Karma Aktif</p>
+              <p className="text-4xl font-black text-white tracking-tight tabular-nums relative z-10">{karma.toLocaleString('id-ID')}</p>
+              <p className="text-sm font-bold text-neutral-400 mt-1.5 relative z-10">
+                Senilai <span className="text-white tabular-nums">Rp {rupiahEquivalent.toLocaleString('id-ID')}</span>
+              </p>
+              <p className="text-[10px] font-medium text-neutral-500 mt-3 relative z-10">Kurs 1 Karma = Rp{KARMA_TO_RUPIAH}</p>
             </div>
-          )}
 
-          <div className="overflow-y-auto flex-grow space-y-3 pr-1">
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2 px-1">Pilihan Cuan Hari Ini</p>
-            
-            {CATALOG.map((item) => {
-              const isAffordable = points >= item.cost
-              return (
-                <div key={item.id} className="bg-white border border-zinc-100 p-4 rounded-2xl flex items-center justify-between shadow-sm hover:border-zinc-300 transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ${item.bg} ${item.color} ${item.border} border`}>
-                      <item.icon size={20} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-zinc-900 text-sm leading-tight">{item.title}</h3>
-                      <p className="text-[10px] font-black text-zinc-400 mt-1 uppercase tracking-wider">{item.cost} Karma</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => handleTukar(item.cost, item.title)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                      isAffordable 
-                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-md' 
-                        : 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200'
+            {/* Withdrawal amount — simple approach: withdraw ALL balance (full balance) */}
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2 ml-1">Jumlah Penarikan</p>
+            <button
+              type="button"
+              disabled={karma <= 0}
+              className="w-full bg-white rounded-[1.5rem] p-4 flex items-center justify-between cursor-pointer transition-all border-2 border-primary shadow-soft mb-5 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-primary/5">
+                  <Wallet className="text-primary" size={20} />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-bold text-neutral-900 text-lg leading-tight">Tarik Semua Karma</h4>
+                  <p className="text-[11px] font-bold text-neutral-400 mt-1">
+                    {karma > 0
+                      ? `${karma.toLocaleString('id-ID')} Karma = Rp ${rupiahEquivalent.toLocaleString('id-ID')}`
+                      : 'Tidak ada karma untuk ditarik'}
+                  </p>
+                </div>
+              </div>
+              <CheckCircle2 className="text-primary shrink-0" size={24} />
+            </button>
+
+            {/* Payout method — from usePaymentMethodStore (filled via Profile > Withdrawal Method) */}
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2 ml-1">Metode Penarikan</p>
+            <div className="space-y-2.5 mb-5">
+              {paymentMethods.length === 0 && (
+                <p className="text-sm font-medium text-neutral-400 text-center py-4">
+                  Belum ada metode. Tambah dulu di Profil → Metode Penarikan.
+                </p>
+              )}
+              {paymentMethods.map((method) => {
+                const isSelected = selectedMethodId === method.id
+                const isConnected = method.kind === 'ewallet' || method.detail !== 'Belum disambungkan'
+                return (
+                  <button
+                    type="button"
+                    key={method.id}
+                    onClick={() => setSelectedMethodId(method.id)}
+                    className={`w-full bg-white rounded-[1.5rem] p-4 flex items-center justify-between cursor-pointer transition-all ${
+                      isSelected ? 'border-2 border-primary shadow-soft' : 'border-2 border-neutral-100 hover:border-neutral-300'
                     }`}
                   >
-                    Tukar
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-2xl ${method.kind === 'bank' ? 'bg-status-accepted/10' : 'bg-primary/5'}`}>
+                        {method.kind === 'bank'
+                          ? <CreditCard className="text-status-accepted" size={20} />
+                          : <Smartphone className="text-primary" size={20} />}
+                      </div>
+                      <div className="text-left">
+                        <h4 className="font-bold text-neutral-900 text-base leading-tight">{method.name}</h4>
+                        <p className={`text-[11px] font-bold mt-0.5 tracking-wider ${isConnected ? 'text-neutral-400' : 'text-neutral-300'}`}>
+                          {isConnected ? method.detail : 'Belum disambungkan'}
+                        </p>
+                      </div>
+                    </div>
+                    <CheckCircle2 className={isSelected ? 'text-primary shrink-0' : 'text-neutral-200 shrink-0'} size={22} />
                   </button>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
 
-       </div>
-    </div>
+            {error && (
+              <div className="mb-4 px-4 py-3 rounded-base flex items-start gap-2.5 text-sm font-medium bg-status-error/10 text-status-error border border-status-error/20">
+                <span className="leading-snug">{error}</span>
+              </div>
+            )}
+
+            <motion.button
+              onClick={handleRedeem}
+              disabled={!canRedeem}
+              whileTap={tapScale}
+              transition={transitionFast}
+              className="w-full min-h-[48px] rounded-base font-bold flex items-center justify-center gap-2 transition-colors bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-soft"
+            >
+              <Gift size={18} /> Tarik Sekarang
+            </motion.button>
+            {karma === 0 && (
+              <p className="text-center text-xs font-medium text-neutral-400 mt-3">
+                Karma masih 0 — selesaikan pickup dulu buat ngumpulin.
+              </p>
+            )}
+          </motion.div>
+        )}
+
+        {phase === 'processing' && (
+          <motion.div
+            key="processing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={transitionFast}
+            className="flex flex-col items-center justify-center py-12 text-center"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-primary/5 flex items-center justify-center mb-5">
+              <Loader2 size={32} className="text-primary animate-spin" />
+            </div>
+            <h3 className="font-black text-neutral-900 text-lg mb-1">Memproses penarikan...</h3>
+            <p className="text-sm font-medium text-neutral-400 leading-relaxed">
+              Mohon tunggu, jangan tutup jendela ini.
+            </p>
+          </motion.div>
+        )}
+
+        {phase === 'success' && (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={transitionFast}
+            className="flex flex-col items-center justify-center py-6 text-center"
+          >
+            <div className="w-16 h-16 rounded-full bg-status-completed/10 flex items-center justify-center mb-4">
+              <ShieldCheck size={34} className="text-status-completed" />
+            </div>
+            <h3 className="font-black text-neutral-900 text-xl mb-1">Penarikan Berhasil!</h3>
+            <p className="text-[15px] font-bold text-neutral-700 tabular-nums leading-relaxed mt-2">
+              Dana Rp {(rupiahSent ?? 0).toLocaleString('id-ID')}
+              <br />
+              telah dikirim ke&nbsp;
+              <span className="text-primary">{selectedMethod ? selectedMethod.name : 'metode pilihan'}</span>
+            </p>
+            <p className="text-xs font-medium text-neutral-400 leading-relaxed mt-4 max-w-[260px]">
+              Simulasi untuk keperluan portofolio — dana tidak benar-benar terkirim.
+            </p>
+            <motion.button
+              onClick={handleClose}
+              whileTap={tapScale}
+              transition={transitionFast}
+              className="mt-6 w-full min-h-[48px] rounded-base font-bold flex items-center justify-center transition-colors bg-neutral-900 text-white hover:bg-neutral-800 shadow-soft"
+            >
+              Selesai
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Dialog>
   )
 }

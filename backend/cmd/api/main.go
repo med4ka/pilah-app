@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"os"
+	"strings"
 
 	"backend/internal/config"
 	"backend/internal/handlers"
@@ -14,35 +16,43 @@ import (
 )
 
 func main() {
-	log.Println("Memulai inisialisasi sistem Pilah...")
+	log.Println("Initializing Pilah system...")
 
-	// 1. Inisialisasi Database (Auto-Migrate sudah jalan otomatis di dalam sini)
 	config.ConnectDB()
 
-	// 2. Inisialisasi Fiber App (Ultra-Lightweight Mode)
+	// JWT_SECRET read once at startup — required, no hardcoded fallback.
+	// Server must not run without a valid secret.
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET must be set in the environment before the server runs")
+	}
+	config.JWTSecret = jwtSecret
+
 	app := fiber.New(fiber.Config{
 		AppName:               "Pilah API v1.0",
 		DisableStartupMessage: true,
 	})
 
-	// 3. Global Middleware (Security & Proper Logging)
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		AllowMethods: "GET, POST, HEAD, PUT, DELETE, PATCH",
-	}))
+	// CORS origins read from env ALLOWED_ORIGINS (comma-separated).
+	// Fallback to localhost only for dev convenience when env is empty.
+	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+	if strings.TrimSpace(allowedOrigins) == "" {
+		allowedOrigins = "http://localhost:3000, http://localhost:3001"
+	}
 
-	// Cegah app mati jika ada panic error
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     allowedOrigins,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, HEAD, PUT, DELETE, PATCH",
+		AllowCredentials: true,
+	}))
 	app.Use(recover.New())
-	// Logging yang rapi untuk setiap request
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} - ${latency} ${method} ${path}\n",
 	}))
 
-	// 4. Setup Routing API
 	api := app.Group("/api/v1")
 
-	// Endpoint Health Check
 	api.Get("/health", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status":  "success",
@@ -50,29 +60,38 @@ func main() {
 		})
 	})
 
-	// ==========================================
-	// 📍 VIBE CODE: ROUTING LAYER
-	// ==========================================
 	authGroup := api.Group("/auth")
 	authGroup.Post("/register", handlers.RegisterUser)
 	authGroup.Post("/login", handlers.LoginUser)
+	authGroup.Post("/logout", handlers.LogoutUser)
 
-	// [+] INI DIA RUTE YANG HILANG KEMARIN!
-	// Menggunakan Protected() agar hanya token valid yang bisa meminta profil
 	api.Get("/users/me", middleware.Protected(), handlers.GetProfile)
+	api.Patch("/users/me", middleware.Protected(), handlers.UpdateProfile)
 
-	// Middleware Protected() memastikan hanya user dengan JWT valid yang bisa akses
+	// Swap Cuan: karma -> simulated Rupiah. Karma balance decreases REAL in DB,
+	// payout only simulated (no real payment gateway).
+	api.Post("/karma/redeem", middleware.Protected(), handlers.RedeemKarma)
+
+	// Collector income: pickup earnings -> simulated withdrawal to collector's
+	// payment method. Balance decreases REAL in DB, payout simulated.
+	// Collector role only (RequireRole must come after Protected).
+	api.Post("/earnings/redeem", middleware.Protected(), middleware.RequireRole("collector"), handlers.RedeemEarnings)
+
 	pickupGroup := api.Group("/pickups", middleware.Protected())
 	pickupGroup.Post("/", handlers.CreatePickup)
 	pickupGroup.Get("/history", handlers.GetUserHistory)
-	pickupGroup.Get("/collector-history", handlers.GetCollectorHistory)
+	pickupGroup.Get("/collector-history", middleware.RequireRole("collector"), handlers.GetCollectorHistory)
+	pickupGroup.Patch("/:id/confirm", handlers.UserConfirmPickup)
 
 	collectorGroup := api.Group("/collector")
 	collectorGroup.Get("/pending", handlers.GetPendingPickups)
-	collectorGroup.Patch("/pickups/:id/accept", middleware.Protected(), handlers.AcceptPickup)
-	collectorGroup.Patch("/pickups/:id/complete", middleware.Protected(), handlers.CompletePickup)
+	collectorGroup.Patch("/pickups/:id/accept", middleware.Protected(), middleware.RequireRole("collector"), handlers.AcceptPickup)
+	collectorGroup.Patch("/pickups/:id/complete", middleware.Protected(), middleware.RequireRole("collector"), handlers.CompletePickup)
 
-	// 5. Jalankan Server
-	log.Println("Server Fiber berjalan di port 8080...")
-	log.Fatal(app.Listen(":8080"))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Printf("Fiber server running on port %s...\n", port)
+	log.Fatal(app.Listen(":" + port))
 }

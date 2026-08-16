@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-// [+] FIX UI: Import Hand (Tangan) dan Sprout (Tunas) dari Lucide
-import { User as UserIcon, CheckCircle2, AlertCircle, Hand, Sprout } from 'lucide-react' 
-import { usePilahStore } from '@/store/usePilahStore'
+import { useCallback, useRef, useState } from 'react'
+import { User as UserIcon, AlertCircle, Sprout, Bell } from 'lucide-react' 
+import { useAuthStore } from '@/store/useAuthStore'
+import { useUIStore } from '@/store/useUIStore'
+import { useNotificationStore, selectUnreadCount } from '@/store/useNotificationStore'
 import AuthModal from '@/app/components/AuthModal'
 
-// Komponen Dashboard
 import KarmaWallet from '@/app/components/dashboard/KarmaWallet'
 import ServiceGrid from '@/app/components/dashboard/ServiceGrid'
 import DashboardBanner from '@/app/components/dashboard/DashboardBanner'
@@ -16,41 +16,55 @@ import RewardSheet from '@/app/components/dashboard/RewardSheet'
 import OrderHistory from '@/app/components/dashboard/OrderHistory'
 import PilahPintarSheet from '@/app/components/dashboard/PilahPintarSheet'
 import DropPointSheet from '@/app/components/dashboard/DropPointSheet'
-import HelpTab from '@/app/components/dashboard/HelpTab'
 import ProfileTab from '@/app/components/dashboard/ProfileTab'
+import ActivePickupCard from '@/app/components/dashboard/ActivePickupCard'
+import NotificationCenter from '@/app/components/dashboard/NotificationCenter'
+import HelpCenter from '@/app/components/dashboard/HelpCenter'
+import HelpFAB from '@/app/components/dashboard/HelpFAB'
 
-// Panggilan API 
-import { createPickupRequest, getUserProfile } from '@/lib/api'
+import { createPickupRequest } from '@/lib/api'
+import EstimateWeightDialog, { type WeightEstimate } from '@/app/components/dashboard/EstimateWeightDialog'
 
 export default function UserHomeScreen() {
-  const { 
-    token, userData, setUserData, isSearching, startSearching, stopSearching, 
-    openAuthModal, logout 
-  } = usePilahStore()
+  const userData = useAuthStore((s) => s.userData)
+  const { isSearching, startSearching, stopSearching, openAuthModal, openNotificationCenter } = useUIStore()
+  const unreadCount = useNotificationStore(selectUnreadCount)
   
   const [activeTab, setActiveTab] = useState('home')
   const [orderStatus, setOrderStatus] = useState<{ type: 'idle' | 'success' | 'error', message: string }>({ type: 'idle', message: '' })
+  // ActivePickupCard shows an active/completed pickup card -> disable the grid
+  // so the user cannot create a duplicate pickup while an order is active.
+  const [hasActivePickup, setHasActivePickup] = useState(false)
+  // Optional weight-estimate step before the GPS/createPickupRequest flow.
+  const [isEstimateOpen, setIsEstimateOpen] = useState(false)
+  const pendingEstimateRef = useRef<WeightEstimate | null>(null)
 
-  useEffect(() => {
-    if (token) {
-      getUserProfile(token)
-        .then(data => setUserData(data))
-        .catch((err) => {
-          console.error("Gagal load profil:", err.message);
-          const errorMsg = err.message.toLowerCase();
-          if (errorMsg.includes("token") || errorMsg.includes("sesi") || errorMsg.includes("unauthorized")) {
-            logout();
-          }
-        }) 
-    }
-  }, [token, activeTab, setUserData, logout])
-
-  const handleJemput = async () => {
-    if (!token) {
+  // Phase 1: "Jemput Sampah" click -> open estimate dialog first, GPS NOT requested yet.
+  const handleJemput = () => {
+    if (!userData) {
       openAuthModal();
       return;
     }
-    
+    setIsEstimateOpen(true);
+  }
+
+  // Phase 2: user presses "Lanjut"/"Lewati" in the dialog -> save the estimate, then
+  // proceed to the existing GPS + createPickupRequest flow (sending the estimate too).
+  const proceedWithEstimate = (estimate: WeightEstimate) => {
+    pendingEstimateRef.current = estimate
+    setIsEstimateOpen(false)
+    void sendPickupRequest()
+  }
+
+  // "Lewati" -> proceed with all estimates at 0 (never force the user to fill them).
+  const skipEstimate = () => {
+    proceedWithEstimate({ estPlasticWeight: 0, estCardboardWeight: 0, estGlassWeight: 0 })
+  }
+
+  const sendPickupRequest = async () => {
+    const estimate = pendingEstimateRef.current || { estPlasticWeight: 0, estCardboardWeight: 0, estGlassWeight: 0 }
+    pendingEstimateRef.current = null
+
     startSearching();
     setOrderStatus({ type: 'idle', message: '' });
 
@@ -64,15 +78,15 @@ export default function UserHomeScreen() {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          await createPickupRequest(token, latitude, longitude);
+          await createPickupRequest(latitude, longitude, estimate);
           setOrderStatus({ type: 'success', message: 'Permintaan disebar ke kolektor terdekat.' });
-        } catch (error: any) {
-          setOrderStatus({ type: 'error', message: error.message });
+        } catch (error) {
+          setOrderStatus({ type: 'error', message: error instanceof Error ? error.message : 'Gagal mengirim permintaan' });
         } finally {
           stopSearching(); 
         }
       },
-      (error) => {
+      () => {
         stopSearching();
         setOrderStatus({ type: 'error', message: 'Tolong izinkan akses lokasi (GPS) agar Kolektor bisa menemukanmu!' });
       },
@@ -84,9 +98,19 @@ export default function UserHomeScreen() {
     setOrderStatus({ type: 'idle', message: '' });
   }
 
+  // Single source of truth: once the pickup card (active/terminal) starts showing,
+  // the "searching" phase is over -> reset orderStatus to idle so the WaitingRadar
+  // disappears. Synced from ActivePickupCard via callback.
+  const handlePickupVisibleChange = useCallback((visible: boolean) => {
+    setHasActivePickup(visible)
+    if (visible) {
+      setOrderStatus({ type: 'idle', message: '' })
+      useUIStore.getState().stopSearching()
+    }
+  }, [])
+
   const renderContent = () => {
     if (activeTab === 'orders') return <OrderHistory />
-    if (activeTab === 'help') return <HelpTab />
     if (activeTab === 'profile') return <ProfileTab />
 
     return (
@@ -97,16 +121,18 @@ export default function UserHomeScreen() {
           <KarmaWallet points={userData?.karma_points || 0} onRiwayatClick={() => setActiveTab('orders')} />
         )}
         {orderStatus.type === 'error' && (
-          <div className="mb-6 px-4 py-3.5 rounded-2xl flex items-center gap-3 text-sm font-medium bg-red-50 text-red-700 border border-red-100">
-            <AlertCircle size={18} className="shrink-0 text-red-600" />
+          <div className="mb-10 px-4 py-3.5 rounded-base flex items-center gap-3 text-sm font-medium bg-status-error/10 text-status-error border border-status-error/20">
+            <AlertCircle size={18} className="shrink-0 text-status-error" />
             <p className="leading-snug">{orderStatus.message}</p>
           </div>
         )}
 
+        <ActivePickupCard onRetry={handleJemput} onPickupVisibleChange={handlePickupVisibleChange} />
+
         <ServiceGrid 
           onJemputClick={handleJemput} 
           isSearching={isSearching} 
-          disabled={orderStatus.type === 'success'} 
+          disabled={orderStatus.type === 'success' || hasActivePickup} 
         />
 
         <DashboardBanner />
@@ -115,7 +141,7 @@ export default function UserHomeScreen() {
   }
 
   const handleHeaderProfileClick = () => {
-    if (token) {
+    if (userData) {
       setActiveTab('profile')
     } else {
       openAuthModal()
@@ -123,43 +149,65 @@ export default function UserHomeScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center sm:p-8 selection:bg-emerald-100">
-      <main className="w-full max-w-md h-[100dvh] sm:h-[850px] bg-white flex flex-col relative overflow-hidden sm:rounded-[2.5rem] shadow-2xl shadow-black/5 border border-zinc-100 transition-all">
+    <div className="min-h-screen bg-neutral-50 selection:bg-primary/20">
+      <main className="w-full h-[100dvh] md:max-w-xl md:mx-auto flex flex-col relative overflow-hidden">
         
         <AuthModal />
         <RewardSheet />
         <PilahPintarSheet />
         <DropPointSheet />
+        <NotificationCenter />
+        <HelpCenter />
+        <HelpFAB />
+        <EstimateWeightDialog
+          isOpen={isEstimateOpen}
+          onClose={() => setIsEstimateOpen(false)}
+          onContinue={proceedWithEstimate}
+          onSkip={skipEstimate}
+        />
 
-        <header className="px-6 pt-8 pb-4 flex justify-between items-center bg-white z-10 shrink-0">
+        <header className="px-6 pt-8 pb-5 flex justify-between items-center bg-white z-10 shrink-0">
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-              {token && userData ? 'Selamat Datang' : 'Pilah App'}
+            <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">
+              {userData ? 'Selamat Datang' : 'Pilah App'}
             </span>
-            {/* [+] IMPLEMENTASI IKON LUCIDE PREMIUM */}
-            <span className="text-xl font-bold text-zinc-900 tracking-tight mt-0.5 flex items-center gap-2">
-              {token && userData ? (
-                <>{userData.name} <Hand className="text-zinc-900" size={20} /></>
+            <span className="text-xl font-bold text-neutral-900 tracking-tight mt-0.5 flex items-center gap-2">
+              {userData ? (
+                <>Halo, {userData.name}!</>
               ) : (
-                <>Mulai Aksimu! <Sprout className="text-emerald-500" size={20} /></>
+                <>Mulai Aksimu! <Sprout className="text-primary" size={20} /></>
               )}
             </span>
           </div>
-          <button 
-            onClick={handleHeaderProfileClick} 
-            className="w-11 h-11 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 transition-all active:scale-95 shadow-sm"
-          >
-            <UserIcon size={20} strokeWidth={2} />
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={openNotificationCenter}
+              aria-label="Buka notifikasi"
+              className="relative w-11 h-11 rounded-full bg-white border border-neutral-200/80 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-all active:scale-95 shadow-soft"
+            >
+              <Bell size={20} strokeWidth={2} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-status-error text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={handleHeaderProfileClick} 
+              className="w-11 h-11 rounded-full bg-white border border-neutral-200/80 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-all active:scale-95 shadow-soft"
+            >
+              <UserIcon size={20} strokeWidth={2} />
+            </button>
+          </div>
         </header>
 
-        <div className="flex-grow overflow-y-auto px-6 pb-28 pt-2 scrollbar-hide">
+        <div className="flex-grow overflow-y-auto px-6 pt-2 scrollbar-hide" style={{ paddingBottom: 'calc(var(--bottom-nav-height, 128px) + 16px)' }}>
           {renderContent()}
         </div>
 
-        <BottomNav 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
         />
 
       </main>

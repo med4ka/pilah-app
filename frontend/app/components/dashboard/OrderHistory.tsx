@@ -1,34 +1,22 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, CheckCircle2, Clock, MapPin, Loader2, Link2, ExternalLink, X, Copy, Check } from 'lucide-react'
-import { usePilahStore } from '@/store/usePilahStore'
-import { getUserHistory } from '@/lib/api'
+import { Package, CheckCircle2, Clock, MapPin, Loader2, ExternalLink, ShieldCheck, XCircle } from 'lucide-react'
+import { getUserHistory, type Pickup } from '@/lib/api'
+import Dialog from '@/app/components/ui/Dialog'
 
 export default function OrderHistory() {
-  const { token } = usePilahStore()
-  const [history, setHistory] = useState<any[]>([])
+  const [history, setHistory] = useState<Pickup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<Pickup | null>(null)
 
   useEffect(() => {
-    if (token) {
-      getUserHistory(token)
-        .then((data) => setHistory(data || []))
-        .catch((err) => console.error("Gagal load history:", err))
-        .finally(() => setIsLoading(false))
-    } else {
-      setIsLoading(false)
-    }
-  }, [token])
-
-  const handleCopyHash = (hash: string) => {
-    navigator.clipboard.writeText(hash)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+    getUserHistory()
+      .then((data) => setHistory(data || []))
+      .catch((err) => console.error("Gagal load history:", err))
+      .finally(() => setIsLoading(false))
+  }, [])
 
   const formatDate = (isoString: string) => {
     const date = new Date(isoString)
@@ -56,9 +44,12 @@ export default function OrderHistory() {
 
       <div className="flex flex-col gap-4">
         {history.length === 0 ? (
-          <div className="bg-zinc-50 border border-dashed border-zinc-200 rounded-[2rem] p-10 flex flex-col items-center justify-center text-center">
-            <Package size={48} className="text-zinc-300 mb-4" strokeWidth={1.5} />
-            <p className="text-sm font-medium text-zinc-500 leading-relaxed">Belum ada riwayat jemputan.<br/>Mulai aksimu sekarang!</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in duration-300">
+            <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+              <Package size={28} className="text-zinc-400" strokeWidth={1.5} />
+            </div>
+            <h4 className="text-base font-bold text-neutral-700">Belum ada riwayat jemputan</h4>
+            <p className="text-sm text-neutral-400 mt-1.5 leading-relaxed max-w-[260px] mx-auto">Mulai aksimu sekarang!</p>
           </div>
         ) : (
           history.map((order) => (
@@ -70,17 +61,20 @@ export default function OrderHistory() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 duration-300 ${
+                    order.status === 'CANCELLED' ? 'bg-status-error/10 text-status-error' :
                     order.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' :
                     order.status === 'ACCEPTED' ? 'bg-amber-50 text-amber-600' :
                     'bg-blue-50 text-blue-600'
                   }`}>
-                    {order.status === 'COMPLETED' ? <CheckCircle2 size={24} /> :
+                    {order.status === 'CANCELLED' ? <XCircle size={24} /> :
+                     order.status === 'COMPLETED' ? <CheckCircle2 size={24} /> :
                      order.status === 'ACCEPTED' ? <MapPin size={24} /> :
                      <Clock size={24} />}
                   </div>
                   <div>
                     <h3 className="font-bold text-zinc-900 tracking-tight">
-                      {order.status === 'COMPLETED' ? 'Selesai Dijemput' :
+                      {order.status === 'CANCELLED' ? 'Jemputan Dibatalkan' :
+                       order.status === 'COMPLETED' ? 'Selesai Dijemput' :
                        order.status === 'ACCEPTED' ? 'Kolektor Menuju Lokasi' : 'Mencari Kolektor'}
                     </h3>
                     <p className="text-[11px] font-semibold text-zinc-400 mt-0.5">
@@ -89,8 +83,8 @@ export default function OrderHistory() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`font-black ${order.status === 'COMPLETED' ? 'text-emerald-600' : 'text-zinc-300'}`}>
-                    {order.status === 'COMPLETED' ? '+50 Karma' : '0 Karma'}
+                  <p className={`font-black ${order.status === 'CANCELLED' ? 'text-status-error' : order.status === 'COMPLETED' ? 'text-emerald-600' : 'text-zinc-300'}`}>
+                    {order.status === 'COMPLETED' ? `+${order.karma_earned ?? 0} Karma` : '0 Karma'}
                   </p>
                   <p className="text-[10px] font-bold text-zinc-300 mt-1 uppercase tracking-wider">
                     ORD-{order.id.toString().substring(0,8)}
@@ -98,100 +92,85 @@ export default function OrderHistory() {
                 </div>
               </div>
 
-              {/* ✨ PREMIUM WEB3 BADGE */}
+              {/* Verified badge — only shows when the pickup is COMPLETED & has a proof hash */}
               {order.status === 'COMPLETED' && order.ipfs_hash && (
-                <div className="mt-1 pt-3 border-t border-zinc-50 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-teal-700 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/50 px-3 py-1.5 rounded-lg shadow-sm">
-                    <Link2 size={12} className="text-teal-600" /> Web3 Proof Saved
-                  </div>
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest group-hover:text-emerald-500 transition-colors">Lihat Detail</span>
-                </div>
+                <a
+                  href={`https://gateway.pinata.cloud/ipfs/${order.ipfs_hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Bukti transaksi tersimpan permanen di jaringan terdesentralisasi"
+                  className="inline-flex items-center gap-1.5 text-[10px] font-bold text-status-completed bg-status-completed/10 border border-status-completed/20 px-3 py-1.5 rounded-lg hover:bg-status-completed/15 transition-colors w-fit"
+                >
+                  <ShieldCheck size={12} /> Terverifikasi
+                </a>
               )}
             </div>
           ))
         )}
       </div>
 
-      {/* 🚀 MODAL DETAIL ORDER */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex justify-center items-end sm:items-center bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="absolute inset-0" onClick={() => setSelectedOrder(null)} />
+      <Dialog
+        isOpen={selectedOrder !== null}
+        onClose={() => setSelectedOrder(null)}
+        title="Detail Transaksi"
+        description={selectedOrder ? `ID: ${selectedOrder.id}` : undefined}
+      >
+        {selectedOrder && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center py-3 border-b border-zinc-50">
+            <span className="text-sm font-semibold text-zinc-500">Status</span>
+            <span className={`text-xs font-bold px-3 py-1.5 rounded-xl ${
+              selectedOrder.status === 'CANCELLED' ? 'bg-status-error/10 text-status-error border border-status-error/20' :
+              selectedOrder.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+              selectedOrder.status === 'ACCEPTED' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+              'bg-blue-50 text-blue-600 border border-blue-100'
+            }`}>
+              {selectedOrder.status}
+            </span>
+          </div>
           
-          <div className="relative w-full max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2rem] p-6 sm:p-8 shadow-2xl animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-300 ease-out">
-            <div className="w-12 h-1.5 bg-zinc-200 rounded-full mx-auto mb-6 sm:hidden" />
-            
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-xl font-black text-zinc-900 tracking-tight">Detail Transaksi</h3>
-                <p className="text-[10px] font-bold text-zinc-400 mt-1 uppercase tracking-widest">ID: {selectedOrder.id}</p>
-              </div>
-              <button onClick={() => setSelectedOrder(null)} className="p-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-full text-zinc-500 transition-colors active:scale-95">
-                <X size={20}/>
-              </button>
-            </div>
+          <div className="flex justify-between items-center py-3 border-b border-zinc-50">
+            <span className="text-sm font-semibold text-zinc-500">Tanggal & Waktu</span>
+            <span className="text-sm font-bold text-zinc-900 text-right">
+              {formatDate(selectedOrder.created_at).date}<br/>
+              <span className="text-xs text-zinc-400">{formatDate(selectedOrder.created_at).time} WIB</span>
+            </span>
+          </div>
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-3 border-b border-zinc-50">
-                <span className="text-sm font-semibold text-zinc-500">Status</span>
-                <span className={`text-xs font-bold px-3 py-1.5 rounded-xl ${
-                  selectedOrder.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                  selectedOrder.status === 'ACCEPTED' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                  'bg-blue-50 text-blue-600 border border-blue-100'
-                }`}>
-                  {selectedOrder.status}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center py-3 border-b border-zinc-50">
-                <span className="text-sm font-semibold text-zinc-500">Tanggal & Waktu</span>
-                <span className="text-sm font-bold text-zinc-900 text-right">
-                  {formatDate(selectedOrder.created_at).date}<br/>
-                  <span className="text-xs text-zinc-400">{formatDate(selectedOrder.created_at).time} WIB</span>
-                </span>
-              </div>
+          <div className="flex justify-between items-center py-3 border-b border-zinc-50">
+            <span className="text-sm font-semibold text-zinc-500">Karma Didapat</span>
+            <span className="text-lg font-black text-emerald-600">
+              {selectedOrder.status === 'COMPLETED' ? '+50 Points' : '0 Points'}
+            </span>
+          </div>
 
-              <div className="flex justify-between items-center py-3 border-b border-zinc-50">
-                <span className="text-sm font-semibold text-zinc-500">Karma Didapat</span>
-                <span className="text-lg font-black text-emerald-600">
-                  {selectedOrder.status === 'COMPLETED' ? '+50 Points' : '0 Points'}
-                </span>
-              </div>
-
-              {/* WEB3 SECTION */}
-              {selectedOrder.ipfs_hash && (
-                <div className="pt-4 animate-in fade-in duration-500 delay-150">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <Link2 size={14} className="text-emerald-500" /> Web3 IPFS Hash
-                  </p>
-                  <div className="bg-zinc-50 border border-zinc-200/60 rounded-[1.5rem] p-4 flex flex-col gap-4 shadow-inner">
-                    <p className="text-[11px] font-mono text-zinc-600 break-all leading-relaxed bg-white p-3 rounded-xl border border-zinc-100">
-                      {selectedOrder.ipfs_hash}
-                    </p>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => handleCopyHash(selectedOrder.ipfs_hash)}
-                        className={`flex-1 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                          copied ? 'bg-emerald-500 text-white shadow-md' : 'bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-100'
-                        }`}
-                      >
-                        {copied ? <><Check size={14} /> Tersalin!</> : <><Copy size={14} /> Salin Hash</>}
-                      </button>
-                      <a 
-                        href={`https://gateway.pinata.cloud/ipfs/${selectedOrder.ipfs_hash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 shadow-md"
-                      >
-                        Cek Explorer <ExternalLink size={14} />
-                      </a>
-                    </div>
+          {/* Transaction proof — only shows when a proof hash exists */}
+          {selectedOrder.ipfs_hash && (
+            <div className="pt-4 animate-in fade-in duration-500 delay-150">
+              <a
+                href={`https://gateway.pinata.cloud/ipfs/${selectedOrder.ipfs_hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Bukti transaksi tersimpan permanen di jaringan terdesentralisasi"
+                className="w-full flex items-center justify-between bg-status-completed/10 border border-status-completed/20 rounded-[1.5rem] p-4 group hover:bg-status-completed/15 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-white rounded-xl border border-status-completed/20 text-status-completed">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-status-completed">Terverifikasi</p>
+                    <p className="text-[10px] font-medium text-zinc-400">Bukti tersimpan permanen di jaringan terdesentralisasi</p>
                   </div>
                 </div>
-              )}
+                <ExternalLink size={14} className="text-status-completed group-hover:scale-110 transition-transform" />
+              </a>
             </div>
-          </div>
+          )}
         </div>
-      )}
+        )}
+      </Dialog>
     </div>
   )
 }

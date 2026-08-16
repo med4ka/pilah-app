@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -8,10 +9,8 @@ import (
 	"backend/internal/models"
 	"backend/internal/repository"
 	"backend/internal/services"
-	"backend/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 func getPickupService() services.PickupService {
@@ -22,26 +21,28 @@ func getPickupService() services.PickupService {
 type CreatePickupPayload struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+	// Resident estimate (optional, default 0): reference for collectors on radar.
+	EstPlasticWeight   float64 `json:"est_plastic_weight"`
+	EstCardboardWeight float64 `json:"est_cardboard_weight"`
+	EstGlassWeight     float64 `json:"est_glass_weight"`
 }
 
 func CreatePickup(c *fiber.Ctx) error {
 	start := time.Now()
 
-	// JWT claims menyimpan angka sebagai float64, kita ubah ke uint dengan aman
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Akses ditolak"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Access denied"})
 	}
 	userID := uint(userIDFloat)
 
 	req := new(CreatePickupPayload)
 	if err := c.BodyParser(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format koordinat tidak valid"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid coordinate format"})
 	}
 
-	// Panggil Service Layer
 	svc := getPickupService()
-	pickup, err := svc.CreatePickup(userID, req.Latitude, req.Longitude)
+	pickup, err := svc.CreatePickup(userID, req.Latitude, req.Longitude, req.EstPlasticWeight, req.EstCardboardWeight, req.EstGlassWeight)
 	if err != nil {
 		log.Printf("❌ [Pickup] Error: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": err.Error()})
@@ -50,33 +51,28 @@ func CreatePickup(c *fiber.Ctx) error {
 	log.Printf("✅ [Pickup] Created | ID: %s | User: %d | Exec: %v\n", pickup.ID, userID, time.Since(start))
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Pahlawan kebersihan sedang dicarikan untuk Anda",
+		"message": "A cleanliness hero is being found for you",
 		"data":    fiber.Map{"pickup_id": pickup.ID, "status": pickup.Status},
 	})
 }
 
-// ==========================================
-// 📍 VIBE CODE: GET USER HISTORY (Optimized)
-// ==========================================
-
-// GetUserHistory mengambil riwayat jemputan khusus untuk user yang sedang login
+// GetUserHistory retrieves pickup history belonging to the logged-in user
 func GetUserHistory(c *fiber.Ctx) error {
-	// Ambil user_id dari token JWT
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Sesi tidak valid",
+			"message": "Invalid session",
 		})
 	}
 
-	var pickups []models.Pickup
-	// ⚡ PERFORMANCE CONSTRAINT: Tarik data berdasar User ID, urutkan dari yang terbaru
-	if err := config.DB.Where("user_id = ?", uint(userIDFloat)).Order("created_at desc").Find(&pickups).Error; err != nil {
-		log.Printf("❌ [History] Gagal tarik data UserID %d: %v\n", uint(userIDFloat), err)
+	svc := getPickupService()
+	pickups, err := svc.GetUserHistory(uint(userIDFloat))
+	if err != nil {
+		log.Printf("❌ [History] Failed to fetch data UserID %d: %v\n", uint(userIDFloat), err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Gagal memuat riwayat",
+			"message": "Failed to load history",
 		})
 	}
 
@@ -86,69 +82,82 @@ func GetUserHistory(c *fiber.Ctx) error {
 	})
 }
 
-// ==========================================
-// 📍 VIBE CODE: KARMA ENGINE + WEB3 PROOF
-// ==========================================
-
-func CompletePickup(c *fiber.Ctx) error {
+// UserConfirmPickup confirms a pickup by its resident owner after the collector
+// submits weight+photo (status VERIFYING). Response carries the karma earned.
+func UserConfirmPickup(c *fiber.Ctx) error {
 	pickupID := c.Params("id")
 
-	// ⚡ SECURITY CONSTRAINT: Database Transaction
-	tx := config.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Invalid session"})
+	}
+	userID := uint(userIDFloat)
 
-	var pickup models.Pickup
-	if err := tx.Where("id = ? AND status = ?", pickupID, "ACCEPTED").First(&pickup).Error; err != nil {
-		tx.Rollback()
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Orderan tidak valid"})
+	if pickupID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid order ID"})
 	}
 
-	pickup.Status = "COMPLETED"
-	if err := tx.Save(&pickup).Error; err != nil {
-		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal update order"})
-	}
-
-	// Transfer 50 Karma
-	if err := tx.Model(&models.User{}).Where("id = ?", pickup.UserID).Update("karma_points", gorm.Expr("karma_points + ?", 50)).Error; err != nil {
-		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mentransfer Karma"})
-	}
-
-	tx.Commit()
-
-	// 📝 PROPER LOGGING
-	log.Printf("✅ [KARMA ENGINE] Order %s Selesai | +50 Karma ke User %d\n", pickupID, pickup.UserID)
-
-	// 🚀 WEB3 INTEGRATION (BACKGROUND TASK / GOROUTINE)
-	// Kita lempar ke background biar UI Kolektor gak nge-freeze nungguin IPFS!
-	go func(p models.Pickup) {
-		payload := map[string]interface{}{
-			"order_id":  p.ID,
-			"user_id":   p.UserID,
-			"action":    "Recycled Waste",
-			"reward":    "+50 Karma",
-			"timestamp": time.Now().Format(time.RFC3339),
-			"platform":  "Pilah App Web 2.5",
+	svc := getPickupService()
+	karma, err := svc.ConfirmPickup(pickupID, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrPickupNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Invalid order",
+			})
 		}
-
-		hash, err := utils.PinJSONToIPFS(payload)
-		if err != nil {
-			log.Printf("⚠️ [WEB3 ERROR] Gagal pin ke IPFS untuk Order %d: %v\n", p.ID, err)
-			return
-		}
-
-		// Update database dengan IPFS Hash secara senyap
-		config.DB.Model(&p).Update("ipfs_hash", hash)
-		log.Printf("🌐 [WEB3 SUCCESS] Order %d tercatat di IPFS: ipfs://%s\n", p.ID, hash)
-	}(pickup)
+		log.Printf("❌ [Confirm] Error | User: %d | ID: %s | %v\n", userID, pickupID, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": err.Error()})
+	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Orderan selesai, Karma didistribusikan!",
+		"message": "Order complete, Karma distributed!",
+		"data": fiber.Map{
+			"pickup_id": pickupID,
+			"karma":     karma,
+		},
+	})
+}
+
+// CompletePickup moves a pickup from ACCEPTED to VERIFYING by the collector who
+// accepted the order. The collector sends weight per material + proof photo.
+// Karma is only transferred after the resident confirms (UserConfirmPickup).
+func CompletePickup(c *fiber.Ctx) error {
+	pickupID := c.Params("id")
+
+	collectorIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Invalid session"})
+	}
+	collectorID := uint(collectorIDFloat)
+
+	if pickupID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid order ID"})
+	}
+
+	verification := new(models.PickupVerification)
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(verification); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Invalid verification data format"})
+		}
+	}
+
+	svc := getPickupService()
+	err := svc.CompletePickup(pickupID, collectorID, *verification)
+	if err != nil {
+		if errors.Is(err, repository.ErrPickupNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Invalid order",
+			})
+		}
+		log.Printf("❌ [Complete] Error | Collector: %d | ID: %s | %v\n", collectorID, pickupID, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Weight recorded, awaiting resident confirmation.",
 	})
 }

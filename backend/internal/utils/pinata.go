@@ -8,14 +8,13 @@ import (
 	"os"
 )
 
-// ⚡ PERFORMANCE CONSTRAINT: Lightweight HTTP Call tanpa external SDK
 func PinJSONToIPFS(payload map[string]interface{}) (string, error) {
 	pinataJWT := os.Getenv("PINATA_JWT")
 	if pinataJWT == "" {
-		return "", fmt.Errorf("PINATA_JWT belum disetting di .env")
+		return "", fmt.Errorf("PINATA_JWT not set in .env")
 	}
 
-	// Bungkus payload sesuai standar Pinata
+	// Wrap payload per the Pinata standard.
 	pinataPayload := map[string]interface{}{
 		"pinataContent": payload,
 		"pinataMetadata": map[string]interface{}{
@@ -50,10 +49,9 @@ func PinJSONToIPFS(payload map[string]interface{}) (string, error) {
 	var result map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&result)
 
-	// Ambil IPFS Hash (CID)
 	if hash, ok := result["IpfsHash"].(string); ok {
 		return hash, nil
 	}
 
-	return "", fmt.Errorf("gagal parsing IpfsHash dari response")
+	return "", fmt.Errorf("failed to parse IpfsHash from response")
 }
