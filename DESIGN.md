@@ -1,53 +1,53 @@
-# DESIGN.md — Identitas Visual Pilah
+# DESIGN.md — Pilah Visual Identity
 
-## 1. Prinsip Utama
+## 1. Core Principles
 
-**Tanpa stiker, tanpa ilustrasi kartun.** Pilah bukan aplikasi "gamifikasi anak muda" bergaya playful-cute — ini platform civic/eco-utility yang harus terasa **tepercaya, bersih, dan serius** tapi tetap hangat (bukan dingin/korporat). Referensi rasa: Linear, Vercel, Apple Health — bukan Duolingo.
+**No stickers, no cartoon illustrations.** Pilah isn't a "youth gamification" app with a playful-cute style — it's a civic/eco-utility platform that must feel **trustworthy, clean, and serious** yet still warm (not cold/corporate). Reference feel: Linear, Vercel, Apple Health — not Duolingo.
 
-Semua elemen visual berbasis: **tipografi kuat + whitespace + ikon garis (Lucide) + warna solid**. Tidak ada mascot, tidak ada flat-illustration orang-orang membuang sampah, tidak ada emoji sebagai elemen desain (emoji di teks/toast masih boleh dalam batas wajar).
+All visual elements are based on: **strong typography + whitespace + line icons (Lucide) + solid colors**. No mascots, no flat illustrations of people throwing away trash, no emoji as a design element (emoji in text/toasts are still fine within reasonable bounds).
 
-## 2. Palet Warna
+## 2. Color Palette
 
-Tema: hijau (eco) dikombinasikan netral gelap untuk kesan tepercaya, bukan hijau-pastel-childish.
+Theme: green (eco) combined with dark neutrals for a trustworthy feel, not childish pastel green.
 
-- **Primary:** hijau tua/forest (bukan hijau terang neon) — untuk aksi utama, brand mark
-- **Accent:** satu warna sekunder untuk status (mis. amber untuk "pending/verifying", biru untuk "accepted", hijau untuk "completed", merah untuk error)
-- **Neutral:** skala abu-abu netral (bukan abu kebiruan) untuk teks & background, dominan di UI
-- **Background:** putih/near-white di light mode; dark mode opsional Phase 2
+- **Primary:** dark green/forest (not bright neon green) — for primary actions, brand mark
+- **Accent:** one secondary color for status (e.g. amber for "pending/verifying", blue for "accepted", green for "completed", red for errors)
+- **Neutral:** neutral gray scale (not bluish-gray) for text & backgrounds, dominant in the UI
+- **Background:** white/near-white in light mode; dark mode optional in Phase 2
 
-Gunakan warna status secara **konsisten sebagai tag/badge**, bukan sebagai background besar — supaya tetap minimalis.
+Use status colors **consistently as tags/badges**, not as large backgrounds — to stay minimalist.
 
-## 3. Tipografi
+## 3. Typography
 
-- Satu typeface sans-serif modern (Inter, Geist, atau sejenis) — jangan campur lebih dari 1 keluarga font
-- Hierarki tegas: hero/heading besar & bold, body medium, caption kecil dengan warna abu redup
-- Angka (karma points, berat kg, harga) pakai tabular numbers supaya rapi saat berubah/animasi
+- One modern sans-serif typeface (Inter, Geist, or similar) — don't mix more than 1 font family
+- Firm hierarchy: large & bold hero/headings, medium body, small captions in muted gray
+- Numbers (karma points, kg weight, prices) use tabular numbers so they align cleanly when changing/animating
 
-## 4. Komponen & Layout
+## 4. Components & Layout
 
-- **Card-based**, radius konsisten (pilih satu nilai radius dan pakai di semua card/button/input — jangan campur)
-- **Soft shadow tipis**, bukan shadow tebal/neumorphism
-- Status pickup ditampilkan sebagai **stepper/timeline horizontal atau vertikal** (Pending → Accepted → Verifying → Completed), bukan badge teks polos — ini titik interaksi paling penting di app, layak effort visual lebih
-- Ikon: Lucide React murni, ukuran konsisten (misal 20px untuk inline, 24px untuk nav)
-- Empty states (riwayat kosong, radar kosong): teks + 1 ikon garis besar, TIDAK pakai ilustrasi — ini yang paling sering jadi tempat "stiker" menyelinap masuk
+- **Card-based**, consistent radius (pick one radius value and use it across all cards/buttons/inputs — don't mix)
+- **Thin soft shadow**, not heavy shadow/neumorphism
+- Pickup status shown as a **horizontal or vertical stepper/timeline** (Pending → Accepted → Verifying → Completed), not a plain text badge — this is the most important interaction point in the app and deserves more visual effort
+- Icons: pure Lucide React, consistent size (e.g. 20px for inline, 24px for nav)
+- Empty states (empty history, empty radar): text + 1 large line icon, NO illustration — this is the most common place "stickers" sneak in
 
 ## 5. Motion
 
-- Transisi halus (150–250ms ease-out) untuk sheet/modal, bukan bounce/spring berlebihan
-- Skeleton loading untuk list (riwayat, radar) — bukan spinner generik di semua tempat
-- Micro-interaction hanya di titik penting: konfirmasi karma bertambah boleh sedikit animasi angka naik (count-up), tapi tetap subtle
+- Smooth transitions (150–250ms ease-out) for sheets/modals, not excessive bounce/spring
+- Skeleton loading for lists (history, radar) — not a generic spinner everywhere
+- Micro-interactions only at important points: a small count-up animation for karma gained confirmation is okay, but keep it subtle
 
-## 6. Mode Warga vs Mitra
+## 6. Warga vs Mitra Modes
 
-Dua peran punya tujuan berbeda (Warga = menunggu & percaya, Mitra = kerja cepat & efisien). UI boleh punya nuansa berbeda:
-- **Warga:** lebih tenang, informatif, banyak white space, fokus status & transparansi
-- **Mitra:** lebih dense/functional, list-based, aksi cepat (accept dalam 1 tap), minim scroll — ini dipakai sambil kerja di lapangan
+The two roles have different goals (Warga = wait & trust, Mitra = work fast & efficiently). The UI may have different nuances:
+- **Warga:** calmer, more informative, lots of white space, focused on status & transparency
+- **Mitra:** denser/more functional, list-based, fast actions (accept in 1 tap), minimal scrolling — used while working in the field
 
-## 7. Checklist Anti-"Sticker"
+## 7. Anti-"Sticker" Checklist
 
-Sebelum commit UI baru, cek:
-- [ ] Tidak ada flat-illustration/mascot
-- [ ] Tidak ada emoji sebagai elemen visual utama (badge, empty state, dsb)
-- [ ] Warna dipakai fungsional (status), bukan dekoratif
-- [ ] Radius & shadow konsisten dengan komponen lain
-- [ ] Ikon dari satu sumber (Lucide) saja
+Before committing any new UI, check:
+- [ ] No flat-illustration/mascot
+- [ ] No emoji as a primary visual element (badge, empty state, etc.)
+- [ ] Colors used functionally (status), not decoratively
+- [ ] Radius & shadow consistent with other components
+- [ ] Icons from one source (Lucide) only

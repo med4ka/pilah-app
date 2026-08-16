@@ -1,36 +1,36 @@
-# Pilah — Penjemputan Sampah Daur Ulang Jadi Berkah
+# Pilah — Recyclable Waste Pickup That Becomes a Blessing
 
-Pilah adalah platform dua sisi (**Warga** ↔ **Mitra/Kolektor**) untuk penjemputan sampah daur ulang (plastik, kardus, kaca) dengan sistem reward **Karma**. Warga membuat permintaan jemput, kolektor menerima & menyelesaikannya, dan setiap transaksi diverifikasi dua arah (handshake) sebelum dianggap selesai — dengan bukti transaksi yang dicatat ke IPFS.
+Pilah is a two-sided platform (**Warga** ↔ **Mitra/Collector**) for recyclable waste pickup (plastic, cardboard, glass) with a **Karma** reward system. Warga create pickup requests, collectors accept & complete them, and every transaction is two-way verified (handshake) before being considered complete — with transaction proof recorded to IPFS.
 
-Dibangun sebagai **PWA** (Next.js) yang dapat diinstal di Android/desktop, dengan backend Go yang mengikuti pola **Handler → Service → Repository** dan auth berbasis **httpOnly cookie**.
+Built as an installable **PWA** (Next.js) for Android/desktop, with a Go backend following the **Handler → Service → Repository** pattern and **httpOnly cookie**-based auth.
 
 ## Stack
 
-| Layer | Teknologi |
+| Layer | Technology |
 |---|---|
 | Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, Zustand, PWA (`@ducanh2912/next-pwa`) |
 | Backend | Go, Fiber v2, GORM, PostgreSQL |
-| Auth | JWT di httpOnly cookie (bukan localStorage) |
-| Bukti transaksi | IPFS via Pinata |
+| Auth | JWT in httpOnly cookie (not localStorage) |
+| Transaction proof | IPFS via Pinata |
 
-## Menjalankan Lokal
+## Running Locally
 
-### Prasyarat
+### Prerequisites
 
-- Node.js & npm (untuk frontend)
-- Go 1.2x (untuk backend)
-- PostgreSQL berjalan lokal (atau pakai Neon/Supabase)
+- Node.js & npm (for frontend)
+- Go 1.2x (for backend)
+- PostgreSQL running locally (or use Neon/Supabase)
 
 ### 1. Backend
 
 ```bash
 cd backend
 cp .env.example .env
-# isi semua nilai di .env — tanpa isi, server tidak akan start (fail-fast)
+# fill in every value in .env — without them, the server won't start (fail-fast)
 go run ./cmd/api
 ```
 
-Backend berjalan di `http://localhost:8080` (ubah via `PORT` di `.env`).
+Backend runs at `http://localhost:8080` (change via `PORT` in `.env`).
 
 ### 2. Frontend
 
@@ -41,26 +41,26 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Frontend berjalan di `http://localhost:3000`. Buka dengan browser, swap ke DevTools → device emulation untuk melihat layout mobile (max-width 500px).
+Frontend runs at `http://localhost:3000`. Open it in a browser, switch to DevTools → device emulation to see the mobile layout (max-width 500px).
 
 ### Environment Variables
 
-Dokumentasi lengkap ada di `.env.example` masing-masing folder:
+Full documentation is in each folder's `.env.example`:
 
 - **`backend/.env`** — `JWT_SECRET`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `PORT`, `APP_ENV`, `ALLOWED_ORIGINS`, `PINATA_JWT`.
 - **`frontend/.env.local`** — `NEXT_PUBLIC_API_URL` (default `http://localhost:8081/api/v1`).
 
-## Script Berguna
+## Useful Scripts
 
 ```bash
 # Frontend
 npm run dev     # development server
-npm run build   # production build (PWA sw.js turut digenerate)
+npm run build   # production build (PWA sw.js also generated)
 npm run lint    # ESLint check
 
 # Backend
-go build ./...  # kompilasi
+go build ./...  # compile
 go vet ./...    # static analysis
 ```
 
-Lihat `ARCHITECTURE.md` untuk struktur backend, `DESIGN.md` untuk identitas visual, dan `PROGRESS.md` untuk status pengerjaan.
+See `ARCHITECTURE.md` for the backend structure, `DESIGN.md` for the visual identity, and `PROGRESS.md` for the work status.

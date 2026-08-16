@@ -1,34 +1,34 @@
-# RULES.md — Aturan Eksekusi (untuk AI Executor & Ghif)
+# RULES.md — Execution Rules (for AI Executor & Ghif)
 
-## Alur Kerja Standar
+## Standard Workflow
 
-1. **Claude** (arsitek/reviewer): menyusun spec detail per fitur/task, mereview hasil kode dari executor, memvalidasi terhadap ARCHITECTURE.md & RULES.md.
-2. **DeepSeek v4 Flash via OpenCode** (executor): menulis kode sesuai prompt/spec dari Claude, tidak mengambil keputusan arsitektur sendiri.
-3. **Ghif**: verifikasi manual (Thunder Client untuk API, pgAdmin untuk cek data, DevTools untuk cek network/cookie), lalu commit manual per perubahan logis. **Git tidak pernah diserahkan ke AI.**
+1. **Claude** (architect/reviewer): writes detailed spec per feature/task, reviews the executor's code output, validates against ARCHITECTURE.md & RULES.md.
+2. **DeepSeek v4 Flash via OpenCode** (executor): writes code per the prompt/spec from Claude, doesn't make architecture decisions itself.
+3. **Ghif**: manual verification (Thunder Client for API, pgAdmin to inspect data, DevTools to check network/cookie), then commits manually per logical change. **Git is never handed to the AI.**
 
-## Checklist Sebelum Commit (wajib dicentang manual)
+## Pre-Commit Checklist (must be ticked manually)
 
-- [ ] Endpoint yang dimodifikasi punya ownership check (kalau relevan)
-- [ ] Tidak ada query DB langsung di handler
-- [ ] Tidak ada secret/credential hardcoded
-- [ ] Error di-log dengan konteks, tidak fail silent
-- [ ] Tidak ada fitur lama yang rusak (regresi) — dites manual
-- [ ] Kode sudah lolos `go vet`/`golangci-lint` (backend) atau `eslint` (frontend)
-- [ ] Tidak ada elemen UI baru yang melanggar DESIGN.md (stiker/ilustrasi/mascot)
+- [ ] Modified endpoints have an ownership check (where relevant)
+- [ ] No direct DB query in handlers
+- [ ] No hardcoded secrets/credentials
+- [ ] Errors logged with context, no silent failures
+- [ ] No old feature broken (regression) — tested manually
+- [ ] Code passes `go vet`/`golangci-lint` (backend) or `eslint` (frontend)
+- [ ] No new UI element violating DESIGN.md (sticker/illustration/mascot)
 
-## Batasan Ukuran Perubahan
+## Change Size Limits
 
-- Satu task = satu concern (mis. "tambah ownership check di confirm endpoint" bukan digabung dengan "redesign halaman riwayat"). Commit kecil, mudah di-review, mudah di-rollback.
-- Kalau sebuah task ternyata menyentuh >3 file sekaligus tanpa direncanakan di spec, berhenti dan konfirmasi ke Ghif dulu sebelum lanjut.
+- One task = one concern (e.g. "add ownership check on confirm endpoint" not combined with "redesign the history page"). Small commits, easy to review, easy to rollback.
+- If a task ends up touching >3 files at once without being planned in the spec, stop and confirm with Ghif before continuing.
 
-## Larangan
+## Prohibitions
 
-- Dilarang menambah library/dependency baru tanpa alasan tertulis di commit message.
-- Dilarang mengubah skema database tanpa migration yang eksplisit dan reversible.
-- Dilarang menyentuh fitur di luar scope PRD.md (AI assistant, live map, dsb) kecuali diminta eksplisit.
-- Dilarang meninggalkan `console.log`/`fmt.Println` debug di kode final.
-- Dilarang membuat endpoint baru yang tidak didaftarkan/didokumentasikan di ARCHITECTURE.md atau README API reference.
+- Forbidden to add new libraries/dependencies without a written reason in the commit message.
+- Forbidden to change the database schema without an explicit, reversible migration.
+- Forbidden to touch features out of PRD.md scope (AI assistant, live map, etc.) unless explicitly requested.
+- Forbidden to leave `console.log`/`fmt.Println` debug statements in the final code.
+- Forbidden to create new endpoints that aren't registered/documented in ARCHITECTURE.md or the README API reference.
 
-## Definisi "Selesai" untuk Setiap Fase (lihat PROGRESS.md)
+## Definition of "Done" for Each Phase (see PROGRESS.md)
 
-Sebuah fase tidak dianggap selesai hanya karena kode "jalan" — harus lolos checklist di atas DAN diverifikasi manual oleh Ghif.
+A phase is not considered done just because the code "runs" — it must pass the checklist above AND be manually verified by Ghif.

@@ -1,57 +1,57 @@
 # PRD — Pilah (Rework)
 
-## 1. Ringkasan
+## 1. Summary
 
-Pilah adalah platform dua sisi (**Warga** ↔ **Mitra/Kolektor**) untuk penjemputan sampah daur ulang dengan sistem reward karma. Rework ini bertujuan mengubah Pilah dari prototipe fungsional menjadi **portofolio showcase kelas production**: aman, konsisten secara arsitektur, dan punya identitas visual yang matang — sekelas NusaPath/Selaras.
+Pilah is a two-sided platform (**Warga** ↔ **Mitra/Collector**) for recyclable waste pickup with a karma reward system. This rework aims to turn Pilah from a functional prototype into a **production-grade portfolio showcase**: secure, architecturally consistent, and with a mature visual identity — at the level of NusaPath/Selaras.
 
-**Target:** Portofolio showcase. Bukan produk yang akan dijalankan operasional riil, tapi harus terasa dan bekerja *seolah-olah* siap produksi (auth benar, tidak ada IDOR, transaksi konsisten, PWA installable).
+**Target:** Portfolio showcase. Not a product that will run real operations, but it must feel and work *as if* production-ready (correct auth, no IDOR, consistent transactions, installable PWA).
 
-**Platform:** Tetap web, dibangun sebagai **PWA** (Next.js `@ducanh2912/next-pwa`, sudah ada di stack). Alasan: PWA menutup sebagian besar gap terhadap native app (kamera via `<input capture>`, push notification di Android/desktop, installable, offline shell) dengan effort jauh lebih kecil, dan API tetap bersih sehingga bisa dikonsumsi Flutter/RN kalau suatu saat mau app native beneran.
+**Platform:** Still web, built as a **PWA** (Next.js `@ducanh2912/next-pwa`, already in the stack). Reason: PWA closes most of the gap against a native app (camera via `<input capture>`, push notification on Android/desktop, installable, offline shell) with far less effort, and the API stays clean so it can be consumed by Flutter/RN if a real native app is ever wanted.
 
-## 2. Masalah yang Diselesaikan
+## 2. Problem Being Solved
 
-Rumah tangga (Warga) punya sampah bernilai daur ulang (plastik, kardus, kaca) tapi tidak ada jalur terorganisir ke kolektor informal (Mitra). Mitra tidak punya cara sistematis menemukan permintaan penjemputan. Pilah menjembatani lewat request-based matching + verifikasi dua arah (handshake) supaya kedua pihak saling percaya sebelum transaksi dianggap selesai.
+Households (Warga) have recyclable waste of value (plastic, cardboard, glass) but no organized channel to informal collectors (Mitra). Mitra have no systematic way to find pickup requests. Pilah bridges this via request-based matching + two-way verification (handshake) so both sides trust each other before a transaction is considered complete.
 
-## 3. Persona
+## 3. Personas
 
-- **Warga** — pengguna rumahan, request pickup, dapat karma point sebagai insentif, ingin transparansi (tahu status pickup-nya, riwayat, poin).
-- **Mitra (Kolektor)** — pekerja informal daur ulang, butuh daftar order yang jelas & real-time-ish, ingin proses accept→complete simpel dari HP.
+- **Warga** — residential user, requests pickup, earns karma points as incentive, wants transparency (knows pickup status, history, points).
+- **Mitra (Collector)** — informal recycling worker, needs a clear & near-real-time order list, wants a simple accept→complete flow from their phone.
 
-## 4. Scope MVP (Rework)
+## 4. MVP Scope (Rework)
 
 ### In-scope
-| Area | Deskripsi |
+| Area | Description |
 |---|---|
-| Auth | Register/login role-based (Warga/Mitra), **httpOnly cookie**, bukan localStorage |
-| Pickup lifecycle | Create → Pending → Accepted → Verifying (kolektor input berat+foto) → Completed (konfirmasi warga) — dengan **ownership check di setiap step** |
-| Karma system | Perhitungan poin berbasis berat per material, transaksi atomik (row lock / DB transaction) |
-| Riwayat | Riwayat pickup warga & kolektor, terpisah, dengan pagination |
-| Profil | Lihat profil, karma total, riwayat ringkas |
-| PWA | Installable, app icon, splash, offline shell minimal (bukan offline-first penuh — itu di luar scope) |
-| IPFS evidence (ringan) | Tetap ada, dipicu otomatis setelah handshake selesai, ditampilkan sebagai "bukti transaksi terverifikasi" di riwayat — murni scaffolding yang dirapikan, bukan fitur berat |
+| Auth | Role-based register/login (Warga/Mitra), **httpOnly cookie**, not localStorage |
+| Pickup lifecycle | Create → Pending → Accepted → Verifying (collector inputs weight+photo) → Completed (resident confirms) — with **ownership check at every step** |
+| Karma system | Point calculation based on weight per material, atomic transaction (row lock / DB transaction) |
+| History | Resident & collector pickup history, separate, with pagination |
+| Profile | View profile, total karma, brief history |
+| PWA | Installable, app icon, splash, minimal offline shell (not full offline-first — that's out of scope) |
+| IPFS evidence (light) | Still present, triggered automatically after handshake completes, shown as "verified transaction proof" in history — purely tidied-up scaffolding, not a heavy feature |
 
-### Out of scope (Phase 2 roadmap, didokumentasikan tapi tidak dikerjakan sekarang)
-- AI assistant / chatbot ("Pilah Pintar") — perlu integrasi LLM sungguhan, bukan placeholder UI
-- Live map/radar real-time kolektor
-- Sistem poin berbasis on-chain/token sungguhan
-- Payment/monetisasi apa pun
+### Out of scope (Phase 2 roadmap, documented but not worked on now)
+- AI assistant / chatbot ("Pilah Pintar") — needs a real LLM integration, not a placeholder UI
+- Live real-time collector map/radar
+- Real on-chain/token-based point system
+- Any payment/monetization
 
-## 5. User Flow Utama
+## 5. Main User Flows
 
-**Warga:** Login → Buat pickup (pilih lokasi via geolocation) → Menunggu (status PENDING) → Notifikasi/lihat status ACCEPTED → Kolektor selesai timbang (VERIFYING) → Warga review & confirm → Karma bertambah, riwayat tercatat.
+**Warga:** Login → Create pickup (choose location via geolocation) → Wait (PENDING status) → Notification/see ACCEPTED status → Collector finishes weighing (VERIFYING) → Warga reviews & confirms → Karma increases, history recorded.
 
-**Mitra:** Login → Lihat daftar pending pickup terdekat (radar sederhana, list bukan peta) → Accept salah satu → Datang, timbang, foto bukti, submit → Menunggu konfirmasi warga → Selesai, masuk riwayat kolektor.
+**Mitra:** Login → See nearest pending pickups list (simple radar, list not map) → Accept one → Arrive, weigh, photo evidence, submit → Wait for resident confirmation → Done, enters collector history.
 
-## 6. Kriteria Sukses (Portofolio Context)
+## 6. Success Criteria (Portfolio Context)
 
-- Tidak ada celah IDOR/authz yang ditemukan saat review manual
-- Skor Lighthouse PWA ≥ 90, installable di Android/desktop
-- Flow lengkap end-to-end bisa didemokan tanpa error dalam <2 menit
-- Kode konsisten Handler→Service→Repository di seluruh backend (tanpa exception)
-- README + demo video/GIF layak ditaruh di portofolio/LinkedIn
+- No IDOR/authz gaps found during manual review
+- Lighthouse PWA score ≥ 90, installable on Android/desktop
+- Full end-to-end flow demonstrable without errors in <2 minutes
+- Consistent Handler→Service→Repository code across the entire backend (no exceptions)
+- README + demo video/GIF suitable for a portfolio/LinkedIn
 
 ## 7. Non-Goals
 
-- Skalabilitas ribuan concurrent user (bukan tujuan portofolio)
-- Kepatuhan regulasi limbah B3/pengelolaan sampah formal
-- Sistem pembayaran nyata
+- Scalability for thousands of concurrent users (not a portfolio goal)
+- Hazardous-waste (B3) regulatory compliance / formal waste management compliance
+- Real payment system

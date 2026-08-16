@@ -244,7 +244,7 @@ func (s *pickupService) CompletePickup(pickupID string, collectorID uint, verifi
 // Returns the karma granted so it can be shown to the resident.
 func (s *pickupService) ConfirmPickup(pickupID string, userID uint) (int, error) {
 	if pickupID == "" {
-		return 0, errors.New("ID order tidak valid")
+		return 0, errors.New("Invalid order ID")
 	}
 
 	tx := s.repo.Begin()

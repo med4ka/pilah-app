@@ -1,0 +1,32 @@
+# ── Documentation / notes ─────────────────────────────────────────────────────
+# Ignore all Markdown docs except README files.
+*.md
+!README.md
+
+# ── Dependencies & build output ───────────────────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# ── Environment & secrets (never commit) ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# ── Backend (Go) ──────────────────────────────────────────────────────────────
+backend/bin/
+backend/*.exe
+backend/*.log
+*.log
+
+# ── OS / editor / tooling ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
